@@ -1,43 +1,48 @@
-----[Recentering and Rewrapping Coordinates]----
-gmx trjconv -s MD.tpr -f MD.xtc -o MD_center.xtc -center -pbc mol -ur compact
-#Choose "Protein" for centering and "System" for output.
+----------------------------------------------------------------------Recentering and Rewrapping Coordinates--------------------------------------------------------------------------------
+Step-1: Open the PyMOL and load the trajectories to see the movie
+	> First Open NPT.tpr file
+	> Then open the MD.xtc file
+
+Step-2: Open the terminal in the directory to CONVERT the TRAJECTORIES
+	gmx trjconv -s MD.tpr -f MD.xtc -o MD_corrected.xtc -pbc mol -ur compact -center
+	> Select 1 & then 0 						#Choose "Protein" for centering and "System" for output.
 
 #To extract the first frame (t = 0 ns) of the trajectory, use trjconv -dump with the recentered trajectory:
-gmx trjconv -s MD.tpr -f MD_center.xtc -o start.pdb -dump 0
+	gmx trjconv -s MD.tpr -f MD_corrected.xtc -o start.pdb -dump 0
 
 
-------RMSD Calculations-----
-gmx rms -s MD.tpr -f MD_center.xtc -o rmsd.xvg
-gmx rms -s MD.tpr -f MD_center.xtc -o rmsd.xvg -tu ns
-4
-13
+Step-3: RMSD Calculations
+	gmx rms -s MD.tpr -f MD_center.xtc -o rmsd.xvg
+	gmx rms -s MD.tpr -f MD_center.xtc -o rmsd.xvg -tu ns 			## For time in (ns)
+	4
+	13 			#(Select appropritate 2 options one by one and then open the output files in Grace) Select Backbone and then LIG
 
+	xmgrace rmsd.xvg	# If this not work then
 
-#(Select appropritate 2 options one by one and then open the output files in Grace) Select Backbone and then LIG
+>Install the grace
+	sudo apt update
+	sudo apt install grace
+	Try again with the command
+	xmgrace rmsd.xvg	#Now it will work properly
+	
+Step-4: RMSF Calculations
+	gmx rmsf -s MD.tpr -f MD_corrected.xtc -o rmsf.xvg
+	4			#Select appropritate Backbone open the output files in Grace
+	xmgrace output.xvg
 
-xmgrace rmsd.xvg
+Step-5: H-bonds
+	gmx hbond -s MD.tpr -f MD_corrected.xtc -num hb.xvg
+	gmx hbond -s MD.tpr -f MD_corrected.xtc -num hb.xvg -tu ns		# For time in (ns)
+	1			# the protein
+	13			# the LIG or Ligand
+	xmgrace hb.xvg
 
-------RMSF Calculations-----
-gmx rmsf -s MD.tpr -f MD_center.xtc -o rmsf.xvg
-4
+Step-6: Gyration Radius
+	gmx gyrate -s MD.tpr -f MD_corrected.xtc -o gyrate1.xvg
+	1			#Choose the group of your choice 
+	xmgrace gyrate1.xvg
 
-(Select appropritate Backbone open the output files in Grace)
-
-xmgrace output.xvg
-
------------h-bonds-------------------
-gmx hbond -s MD.tpr -f MD_center.xtc -num hb.xvg
-gmx hbond -s MD.tpr -f MD_center.xtc -num hb.xvg -tu ns
-1
-13
-xmgrace hb.xvg
-
---------------Gyration Radius------------------
-gmx gyrate -s MD.tpr -f MD_center.xtc -o gyrate1.xvg
-#Choose the group of your choice 
-xmgrace gyrate1.xvg
-
--------------ENERGY Calculations---------------
-gmx energy -f MD.edr -o energy1.xvg
-#Choose the option of your choice
-xmgrace -nxy energy1.xvg
+Step-7: ENERGY Calculations
+	gmx energy -f MD.edr -o energy1.xvg
+	#Choose the option of your choice
+	xmgrace -nxy energy1.xvg
