@@ -1,0 +1,166 @@
+-------------------------------------------------------------STEPS FOR MD AS FOLLOWS----------------------------------------------------
+$$PREPARE LIGAND AND RECEPTOR IN CHIMERA MANUALLY----
+
+##Ligand Preparation
+1. Save the best docked complex file as pdb file and Opened it in Chimera
+	1.1 Go to the selection and select the chain of protein and Delete the chain
+	1.2 Go to the tools and select structure editing add hydrogens and save it as mol2 file as 'LIG.mol2'
+
+#Now, Open the LIG.mol2 file and make a small change in the second line
+	1.3 Open LIG.mol2 by using gedit command (gedit LIG.mol2) or simply opening file in any text editor.
+	1.4 If the gedit command not work the just fixed it using
+	sudo snap install gedit > it will work
+	1.5 make sure that "@<TRIPOS>MOLECULE" this is the first line in your file > delete the header and empty space if you have
+	1.6 "@<TRIPOS>MOLECULE” there will be name after this line maybe abc.pdb or anything else
+	Just change it to LIG and SAVE & EXIT
+#Now time to fixed the bond order
+	1.7 We have to fix the differently ordered bond in a specific order to avoid errors using-
+	perl sort_mol2_bonds.pl LIG.mol2 LIG.mol2
+	
+#Its time to create topology for GROMACS
+	2.1 Go to SwissParam "http://www.swissparam.ch/" and upload the 'Lig.mol2 file'
+	2.2 Submit your LIG.mol2 file here and convert it into SMILES
+	2.3 Download the .zip folder
+
+$$Receptor Preparation--------------
+3.best docked complex file as pdb file and Opened it in Chimera
+	3.1 From selection > select the ligand and delete
+	3.2 Go to Tools > Surface/Binding analysis > DockPrep complete the procedure as it follows
+	3.3 Save it as .pdb file with name 'REC.pdb'
+
+4. Download the GROMACS essential files from Github Repositories "https://github.com/ahad004/MD-RUn_Protein_Ligand"
+5. Open your own directory for Gromacs, copy the downloaded zip file into this directory and extract
+6. Copy the DockPrep 'rec.pdb' and 'LIG.mol2'in to working directory
+7. Open the terminal in this directory and proceed with GROMACS.
+
+--------------------------------------------------------GROMACS UBUNTU TUTORIAL---------------------------------------------------------
+
+Open the Terminal and give the command
+	8. gmx > PRESS ENTER
+If it is not work then------
+	9. source /usr/local/gromacs/bin/GMXRC	(If Gromacs is manually compiled / not for dirty install)  
+
+Again Open the Terminal in the directory where you are working
+	gmx pdb2gmx -f REC.pdb -ignh
+		8 (CHARMM27) 		#Choose the force field 
+		1 (TIP3P)	 	#Choose the water model
+		
+#Now it's time to merge these 2 .gro file,
+	gmx editconf -f LIG.pdb -o LIG.gro
+	gedit conf.gro LIG.gro
+***(Copy content from 3rd line of lig.gro to the conf.gro file up to the 2nd last line)
+***(Check the total line number [x] in conf.gro and replace the value in 2nd line by subtracting 3 from [x])
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+-----EDIT THE FOLLOWING in topol.top -----
+Open the topol file in gedit by command;
+	gedit topol.top
+And add 
+	; Include ligand topology 
+	#include "LIG.itp"
+
+	below- Include forcefield parameters
+	#include "amberGS.ff/forcefield.itp")
+
+AT THE BOTTOM OF THE SAME FILE PERFORM FOLLOWING CHANGES
+Add 
+	LIG 1
+	align exactly below-
+	Protein_chain_E     1)
+
+-----EDIT THE FOLLOWING in lig.itp [OPTIONAL] -----
+
+	gedit lig.itp
+	[ moleculetype ]
+	; Name nrexcl
+	lig_gmx2 3
+TO
+	[ moleculetype ]
+	; Name nrexcl
+	LIG 3
+(in some cases there will be already present the LIG 3 so for such cases no need to change)
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+#Now we have to create a virtual box [like a solvation_box] around the protein_ligand using the command----
+
+	gmx editconf -f conf.gro -d 1.0 -bt triclinic -o box.gro
+
+	gmx solvate -cp box.gro -cs spc216.gro -p topol.top -o box_sol.gro
+
+	gmx grompp -f ions.mdp -c box_sol.gro -p topol.top -o ION.tpr      
+	OR,
+	gmx grompp -f ions.mdp -c box_sol.gro -maxwarn 2 -p topol.top -o ION.tpr
+
+	gmx genion -s ION.tpr -p topol.top -conc 0.1 -neutral -o box_sol_ion.gro
+	15
+
+	gmx grompp -f EM.mdp -c box_sol_ion.gro -p topol.top -o EM.tpr     
+	OR,
+	gmx grompp -f EM.mdp -c box_sol_ion.gro -maxwarn 2 -p topol.top -o EM.tpr
+
+	gmx mdrun -v -deffnm EM
+
+#Now we have the make the index files
+ 
+	gmx make_ndx -f LIG.gro -o index_LIG.ndx
+	 	> 0 & ! a H*
+ 	 	> q
+
+	gmx genrestr -f LIG.gro -n index_LIG.ndx -o posre_LIG.itp -fc 1000 1000 1000
+		> select group "3"
+	
+Now, open topol.top file
+
+	at the end of the document 
+
+	after 
+		"; Include Position restraint file
+		#ifdef POSRES
+		#include "posre.itp"
+		#endif
+
+		"Here"
+
+	add this 
+
+		; Ligand position restraints
+		#ifdef POSRES
+		#include "posre_LIG.itp"
+		#endif
+
+Again, Make other Index file for System usimng the command; 
+
+	gmx make_ndx -f EM.gro -o index.ndx
+	
+		> 1 | 13
+		> q
+----------------------------------------------------------------------------------------------------------------------------------------
+#Now its time for Equilibration
+
+Step 1: NVT
+	gedit NVT.mdp (This file is already modified)
+
+	gmx grompp -f NVT.mdp -c EM.gro -r EM.gro -p topol.top -n index.ndx -o NVT.tpr [Fisrt try this one]
+	OR,
+	gmx grompp -f NVT.mdp -c EM.gro -r EM.gro -p topol.top -n index.ndx -maxwarn 2 -o NVT.tpr
+	
+	gmx mdrun -deffnm NVT		#this is MD for the 1s 100 ps equilibration]
+
+Step 2: NPT
+	gedit NPT.mdp (This file is already modified)
+
+	gmx grompp -f NPT.mdp -c NVT.gro -r NVT.gro -p topol.top -n index.ndx -maxwarn 2 -o NPT.tpr
+	
+	gmx mdrun -deffnm NPT
+----------------------------------------------------------------------------------------------------------------------------------------
+
+Final Steps: MD Production Run]-----
+	gedit MD.mdp (Change MD RUN TIME as per your need)
+
+	gmx grompp -f MD.mdp -c NPT.gro -t NPT.cpt -p topol.top -n index.ndx -maxwarn 2 -o MD.tpr
+
+	gmx mdrun -deffnm MD
+
+----------------------------------------------------------------------------------------------------------------------------------------
