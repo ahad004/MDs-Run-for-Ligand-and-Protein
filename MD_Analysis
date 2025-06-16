@@ -1,0 +1,43 @@
+----[Recentering and Rewrapping Coordinates]----
+gmx trjconv -s MD.tpr -f MD.xtc -o MD_center.xtc -center -pbc mol -ur compact
+#Choose "Protein" for centering and "System" for output.
+
+#To extract the first frame (t = 0 ns) of the trajectory, use trjconv -dump with the recentered trajectory:
+gmx trjconv -s MD.tpr -f MD_center.xtc -o start.pdb -dump 0
+
+
+------RMSD Calculations-----
+gmx rms -s MD.tpr -f MD_center.xtc -o rmsd.xvg
+gmx rms -s MD.tpr -f MD_center.xtc -o rmsd.xvg -tu ns
+4
+13
+
+
+#(Select appropritate 2 options one by one and then open the output files in Grace) Select Backbone and then LIG
+
+xmgrace rmsd.xvg
+
+------RMSF Calculations-----
+gmx rmsf -s MD.tpr -f MD_center.xtc -o rmsf.xvg
+4
+
+(Select appropritate Backbone open the output files in Grace)
+
+xmgrace output.xvg
+
+-----------h-bonds-------------------
+gmx hbond -s MD.tpr -f MD_center.xtc -num hb.xvg
+gmx hbond -s MD.tpr -f MD_center.xtc -num hb.xvg -tu ns
+1
+13
+xmgrace hb.xvg
+
+--------------Gyration Radius------------------
+gmx gyrate -s MD.tpr -f MD_center.xtc -o gyrate1.xvg
+#Choose the group of your choice 
+xmgrace gyrate1.xvg
+
+-------------ENERGY Calculations---------------
+gmx energy -f MD.edr -o energy1.xvg
+#Choose the option of your choice
+xmgrace -nxy energy1.xvg
